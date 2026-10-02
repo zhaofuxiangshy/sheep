@@ -12,59 +12,59 @@ namespace WinFramework
 {
     public partial class MainForm : Form
     {
-        // UI fields
-        private Panel headerPanel;
-        private Label lblHeaderTitle;
-        private Label lblVersion;
-        private Button btnMin;
-        private Button btnMax;
-        private Button btnClose;
-        private Button btnMenu;
+        // UI fields (assigned in InitializeComponent)
+        private Panel headerPanel = null!;
+        private Label lblHeaderTitle = null!;
+        private Label lblVersion = null!;
+        private Button btnMin = null!;
+        private Button btnMax = null!;
+        private Button btnClose = null!;
+        private Button btnMenu = null!;
 
-        private Panel leftPanel;
-        private GroupBox grpNetwork;
-        private Label lblProtocol;
-        private ComboBox cbProtocol;
-        private Label lblHost;
-        private TextBox txtHost;
-        private Label lblPort;
-        private TextBox txtPort;
-        private RoundedButton btnConnect;
+        private Panel leftPanel = null!;
+        private GroupBox grpNetwork = null!;
+        private Label lblProtocol = null!;
+        private ComboBox cbProtocol = null!;
+        private Label lblHost = null!;
+        private TextBox txtHost = null!;
+        private Label lblPort = null!;
+        private TextBox txtPort = null!;
+        private RoundedButton btnConnect = null!;
 
-        private GroupBox grpReceive;
-        private CheckBox chkAsciiRecv;
-        private CheckBox chkHexRecv;
-        private CheckBox chkShowAsLog;
-        private CheckBox chkAutoNewline;
-        private CheckBox chkAutoSaveRecv;
-        private LinkLabel lnkOrganizeRecv;
-        private LinkLabel lnkClearRecv;
+        private GroupBox grpReceive = null!;
+        private CheckBox chkAsciiRecv = null!;
+        private CheckBox chkHexRecv = null!;
+        private CheckBox chkShowAsLog = null!;
+        private CheckBox chkAutoNewline = null!;
+        private CheckBox chkAutoSaveRecv = null!;
+        private LinkLabel lnkOrganizeRecv = null!;
+        private LinkLabel lnkClearRecv = null!;
 
-        private GroupBox grpSend;
-        private CheckBox chkAsciiSend;
-        private CheckBox chkHexSend;
-        private CheckBox chkAutoParse;
-        private CheckBox chkAtReturn;
-        private CheckBox chkAutoChecksum;
+        private GroupBox grpSend = null!;
+        private CheckBox chkAsciiSend = null!;
+        private CheckBox chkHexSend = null!;
+        private CheckBox chkAutoParse = null!;
+        private CheckBox chkAtReturn = null!;
+        private CheckBox chkAutoChecksum = null!;
 
-        private Panel centerPanel;
-        private GroupBox grpLog;
-        private RichTextBox rtxtLog;
-        private Label lblEmptyState;
+        private Panel centerPanel = null!;
+        private GroupBox grpLog = null!;
+        private RichTextBox rtxtLog = null!;
+        private Label lblEmptyState = null!;
 
-        private Panel bottomPanel;
-        private GroupBox grpDataSend;
-        private TextBox txtSend;
-        private RoundedButton btnSend;
-        private RoundedButton btnClearSend;
-        private RoundedButton btnClearLog;
-        private RoundedButton btnUploadSample;
+        private Panel bottomPanel = null!;
+        private GroupBox grpDataSend = null!;
+        private TextBox txtSend = null!;
+        private RoundedButton btnSend = null!;
+        private RoundedButton btnClearSend = null!;
+        private RoundedButton btnClearLog = null!;
+        private RoundedButton btnUploadSample = null!;
 
-        private StatusStrip statusStrip;
-        private ToolStripStatusLabel lblStatus;
-        private ToolStripStatusLabel lblSpacer;
-        private ToolStripStatusLabel lblCounts;
-        private ToolStripStatusLabel lblCenterCounts;
+        private StatusStrip statusStrip = null!;
+        private ToolStripStatusLabel lblStatus = null!;
+        private ToolStripStatusLabel lblSpacer = null!;
+        private ToolStripStatusLabel lblCounts = null!;
+        private ToolStripStatusLabel lblCenterCounts = null!;
 
         // Networking
         private TcpClient? _tcpClient;
@@ -212,17 +212,6 @@ namespace WinFramework
             statusStrip.Items.Add(lblCounts);
             this.Controls.Add(statusStrip);
 
-            // Wire fields to previously used names
-            this.lblHeaderTitle = lblHeaderTitle; // already assigned
-            this.lblVersion = lblVersion;
-            this.btnMin = btnMin; this.btnMax = btnMax; this.btnClose = btnClose; this.btnMenu = btnMenu;
-            this.leftPanel = leftPanel; this.grpNetwork = grpNetwork; this.cbProtocol = cbProtocol; this.txtHost = txtHost; this.txtPort = txtPort; this.btnConnect = btnConnect;
-            this.grpReceive = grpReceive; this.chkAsciiRecv = chkAsciiRecv; this.chkHexRecv = chkHexRecv; this.chkShowAsLog = chkShowAsLog; this.chkAutoNewline = chkAutoNewline; this.chkAutoSaveRecv = chkAutoSaveRecv; this.lnkOrganizeRecv = lnkOrganizeRecv; this.lnkClearRecv = lnkClearRecv;
-            this.grpSend = grpSend; this.chkAsciiSend = chkAsciiSend; this.chkHexSend = chkHexSend; this.chkAutoParse = chkAutoParse; this.chkAtReturn = chkAtReturn; this.chkAutoChecksum = chkAutoChecksum;
-            this.centerPanel = centerPanel; this.grpLog = grpLog; this.rtxtLog = rtxtLog; this.lblEmptyState = lblEmptyState;
-            this.bottomPanel = bottomPanel; this.grpDataSend = grpDataSend; this.txtSend = txtSend; this.btnSend = btnSend; this.btnClearSend = btnClearSend; this.btnClearLog = btnClearLog; this.btnUploadSample = btnUploadSample;
-            this.statusStrip = statusStrip; this.lblStatus = lblStatus; this.lblCounts = lblCounts; this.lblCenterCounts = lblCenterCounts; this.lblSpacer = lblSpacer;
-
             // header drag
             headerPanel.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) NativeMethods.ReleaseCaptureAndDrag(this.Handle); };
             this.Resize += (s, e) => UpdateHeaderPositions();
@@ -272,6 +261,14 @@ namespace WinFramework
 
             UpdateHeaderPositions();
             ShowEmptyState(true);
+        }
+
+        private void StyleGroup(GroupBox group)
+        {
+            if (group == null) return;
+            group.ForeColor = Color.FromArgb(180, 220, 255);
+            group.BackColor = Color.FromArgb(9, 25, 38);
+            group.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
         }
 
         private void UpdateHeaderPositions()
@@ -428,6 +425,12 @@ namespace WinFramework
         private static string ByteArrayToHex(byte[] data) => BitConverter.ToString(data).Replace("-", " ");
         private static byte[] HexToByteArray(string hex) { if (string.IsNullOrEmpty(hex)) return Array.Empty<byte>(); if (hex.Length % 2 != 0) throw new ArgumentException("Hex length invalid."); var res = new byte[hex.Length / 2]; for (int i = 0; i < res.Length; i++) res[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16); return res; }
 
-        protected override void OnClosed(EventArgs e) { _readCts?.Cancel(); _networkStream?.Dispose(); _tcpClient?.Dispose(); base.OnClosed(e); }
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            _readCts?.Cancel();
+            _networkStream?.Dispose();
+            _tcpClient?.Dispose();
+            base.OnFormClosed(e);
+        }
     }
 }
