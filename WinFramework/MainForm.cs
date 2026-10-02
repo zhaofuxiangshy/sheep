@@ -12,12 +12,84 @@ namespace WinFramework
 {
     public partial class MainForm : Form
     {
-        // UI fields omitted for brevity are declared in InitializeComponent
+        // UI fields
+        private Panel headerPanel;
+        private Label lblHeaderTitle;
+        private Label lblVersion;
+        private Button btnMin;
+        private Button btnMax;
+        private Button btnClose;
+        private Button btnMenu;
+
+        private Panel leftPanel;
+        private GroupBox grpNetwork;
+        private Label lblProtocol;
+        private ComboBox cbProtocol;
+        private Label lblHost;
+        private TextBox txtHost;
+        private Label lblPort;
+        private TextBox txtPort;
+        private RoundedButton btnConnect;
+
+        private GroupBox grpReceive;
+        private CheckBox chkAsciiRecv;
+        private CheckBox chkHexRecv;
+        private CheckBox chkShowAsLog;
+        private CheckBox chkAutoNewline;
+        private CheckBox chkAutoSaveRecv;
+        private LinkLabel lnkOrganizeRecv;
+        private LinkLabel lnkClearRecv;
+
+        private GroupBox grpSend;
+        private CheckBox chkAsciiSend;
+        private CheckBox chkHexSend;
+        private CheckBox chkAutoParse;
+        private CheckBox chkAtReturn;
+        private CheckBox chkAutoChecksum;
+
+        private Panel centerPanel;
+        private GroupBox grpLog;
+        private RichTextBox rtxtLog;
+        private Label lblEmptyState;
+
+        private Panel bottomPanel;
+        private GroupBox grpDataSend;
+        private TextBox txtSend;
+        private RoundedButton btnSend;
+        private RoundedButton btnClearSend;
+        private RoundedButton btnClearLog;
+        private RoundedButton btnUploadSample;
+
+        private StatusStrip statusStrip;
+        private ToolStripStatusLabel lblStatus;
+        private ToolStripStatusLabel lblSpacer;
+        private ToolStripStatusLabel lblCounts;
+        private ToolStripStatusLabel lblCenterCounts;
+
+        // Networking
+        private TcpClient? _tcpClient;
+        private NetworkStream? _networkStream;
+        private CancellationTokenSource? _readCts;
+        private readonly object _syncRoot = new();
+
+        private int _rxCount;
+        private int _txCount;
+        private readonly string _savePath = Path.Combine(Application.StartupPath, "recv_log.txt");
 
         public MainForm()
         {
             InitializeComponent();
             ApplyTheme();
+
+            cbProtocol.SelectedIndex = 0;
+            txtHost.Text = "192.168.6.101";
+            txtPort.Text = "1234";
+            txtSend.Text = "http://www.cmsoft.cn";
+            lblStatus.Text = "就绪！";
+            lblCounts.Text = "RX:0  TX:0";
+            lblCenterCounts.Text = "0/0";
+
+            UpdateHeaderPositions();
         }
 
         private void InitializeComponent()
@@ -31,154 +103,128 @@ namespace WinFramework
             this.DoubleBuffered = true;
 
             // Header
-            var header = new Panel { Dock = DockStyle.Top, Height = 72, Padding = new Padding(12) };
-            var lblIcon = new Label { Text = "🌐", Font = new Font("Segoe UI Emoji", 20F), AutoSize = false, Width = 44, Height = 44, TextAlign = ContentAlignment.MiddleCenter };
-            var lblTitle = new Label { Text = "网络调试助手", Font = new Font("Segoe UI", 18F, FontStyle.Bold), ForeColor = Color.White, AutoSize = false, Height = 44, TextAlign = ContentAlignment.MiddleLeft };
-            lblTitle.Location = new Point(64, 16);
-            lblTitle.Width = 700;
+            headerPanel = new Panel { Dock = DockStyle.Top, Height = 72, Padding = new Padding(8) };
 
-            var lblVer = new Label { Text = "NetAssist V4.3.2b", Font = new Font("Segoe UI", 9F), AutoSize = true };
-            lblVer.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnMenu = new Button { Text = "≡", Size = new Size(38, 38), Location = new Point(10, 16), FlatStyle = FlatStyle.Flat };
+            btnMenu.FlatAppearance.BorderSize = 0;
+            btnMenu.ForeColor = Color.LightGray;
+            btnMenu.BackColor = Color.FromArgb(12, 26, 40);
 
-            var btnMin = new Button { Text = "—", Size = new Size(30, 28), FlatStyle = FlatStyle.Flat };
-            var btnMax = new Button { Text = "□", Size = new Size(30, 28), FlatStyle = FlatStyle.Flat };
-            var btnClose = new Button { Text = "✕", Size = new Size(30, 28), FlatStyle = FlatStyle.Flat };
+            var lblIcon = new Label { Text = "🌐", Font = new Font("Segoe UI Emoji", 20F), AutoSize = false, Width = 44, Height = 44, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(56, 14) };
+            lblHeaderTitle = new Label { Text = "网络调试助手", Font = new Font("Segoe UI", 18F, FontStyle.Bold), ForeColor = Color.White, AutoSize = false, Height = 44, TextAlign = ContentAlignment.MiddleLeft };
+            lblHeaderTitle.Location = new Point(106, 14);
+            lblHeaderTitle.Width = 620;
+
+            lblVersion = new Label { Text = "NetAssist V4.3.2b", Font = new Font("Segoe UI", 9F), AutoSize = true };
+            lblVersion.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+            btnMin = new Button { Text = "—", Size = new Size(30, 26), FlatStyle = FlatStyle.Flat };
+            btnMax = new Button { Text = "□", Size = new Size(30, 26), FlatStyle = FlatStyle.Flat };
+            btnClose = new Button { Text = "✕", Size = new Size(30, 26), FlatStyle = FlatStyle.Flat };
             btnMin.Click += (_, _) => WindowState = FormWindowState.Minimized;
             btnMax.Click += (_, _) => WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
             btnClose.Click += (_, _) => Close();
 
-            header.Controls.Add(lblIcon);
-            header.Controls.Add(lblTitle);
-            header.Controls.Add(lblVer);
-            header.Controls.Add(btnMin);
-            header.Controls.Add(btnMax);
-            header.Controls.Add(btnClose);
-            this.Controls.Add(header);
+            headerPanel.Controls.AddRange(new Control[] { btnMenu, lblIcon, lblHeaderTitle, lblVersion, btnMin, btnMax, btnClose });
+            this.Controls.Add(headerPanel);
 
             // Left
-            var left = new Panel { Dock = DockStyle.Left, Width = 320, Padding = new Padding(12) };
+            leftPanel = new Panel { Dock = DockStyle.Left, Width = 330, Padding = new Padding(12) };
 
-            var grpNetwork = new GroupBox { Text = "网络设置", Height = 188, Dock = DockStyle.Top };
-            var lblProt = new Label { Text = "(1) 协议类型", Location = new Point(12, 22) };
-            var cbProt = new ComboBox { Location = new Point(12, 46), Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
-            cbProt.Items.AddRange(new object[] { "TCP Client", "TCP Server", "UDP" });
-            cbProt.SelectedIndex = 0;
-            var lblHost = new Label { Text = "(2) 远程主机地址", Location = new Point(12, 86) };
-            var txtHost = new TextBox { Location = new Point(12, 108), Width = 260, Text = "192.168.6.101" };
-            var lblPort = new Label { Text = "(3) 远程主机端口", Location = new Point(12, 142) };
-            var txtPort = new TextBox { Location = new Point(12, 164), Width = 120, Text = "1234" };
+            grpNetwork = new GroupBox { Text = "网络设置", Height = 188, Dock = DockStyle.Top };
+            lblProtocol = new Label { Text = "(1) 协议类型", Location = new Point(12, 22) };
+            cbProtocol = new ComboBox { Location = new Point(12, 48), Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            var btnConnect = new RoundedButton { Text = "连接", Location = new Point(184, 160), Width = 88, Height = 34, Radius = 6 };
+            lblHost = new Label { Text = "(2) 远程主机地址", Location = new Point(12, 88) };
+            txtHost = new TextBox { Location = new Point(12, 110), Width = 260 };
+
+            lblPort = new Label { Text = "(3) 远程主机端口", Location = new Point(12, 146) };
+            txtPort = new TextBox { Location = new Point(12, 168), Width = 120 };
+
+            btnConnect = new RoundedButton { Text = "连接", Location = new Point(188, 162), Width = 84, Height = 34, Radius = 6 };
             btnConnect.Click += BtnConnect_Click;
 
-            grpNetwork.Controls.AddRange(new Control[] { lblProt, cbProt, lblHost, txtHost, lblPort, txtPort, btnConnect });
+            grpNetwork.Controls.AddRange(new Control[] { lblProtocol, cbProtocol, lblHost, txtHost, lblPort, txtPort, btnConnect });
 
-            var grpRecv = new GroupBox { Text = "接收设置", Height = 150, Dock = DockStyle.Top };
-            var chkAsciiR = new CheckBox { Text = "ASCII", Location = new Point(12, 28), Checked = true };
-            var chkHexR = new CheckBox { Text = "HEX", Location = new Point(92, 28) };
-            var chkLogMode = new CheckBox { Text = "按日志模式显示", Location = new Point(12, 58), Checked = true };
-            var chkWrap = new CheckBox { Text = "接收区自动换行", Location = new Point(12, 86), Checked = true };
-            var chkAutoSave = new CheckBox { Text = "接收区自动保存...", Location = new Point(12, 112) };
-            grpRecv.Controls.AddRange(new Control[] { chkAsciiR, chkHexR, chkLogMode, chkWrap, chkAutoSave });
+            grpReceive = new GroupBox { Text = "接收设置", Height = 150, Dock = DockStyle.Top };
+            chkAsciiRecv = new CheckBox { Text = "ASCII", Location = new Point(12, 26), Checked = true };
+            chkHexRecv = new CheckBox { Text = "HEX", Location = new Point(90, 26) };
+            chkShowAsLog = new CheckBox { Text = "按日志模式显示", Location = new Point(12, 54), Checked = true };
+            chkAutoNewline = new CheckBox { Text = "接收区自动换行", Location = new Point(12, 82), Checked = true };
+            chkAutoSaveRecv = new CheckBox { Text = "接收区自动保存...", Location = new Point(12, 110) };
 
-            var grpSend = new GroupBox { Text = "发送设置", Height = 170, Dock = DockStyle.Top };
-            var chkAsciiS = new CheckBox { Text = "ASCII", Location = new Point(12, 28), Checked = true };
-            var chkHexS = new CheckBox { Text = "HEX", Location = new Point(92, 28) };
-            var chkParse = new CheckBox { Text = "自动解析转义符", Location = new Point(12, 58), Checked = true };
-            var chkAt = new CheckBox { Text = "AT指令自动回车", Location = new Point(12, 86) };
-            var chkCheck = new CheckBox { Text = "自动发送校验位", Location = new Point(12, 114) };
-            grpSend.Controls.AddRange(new Control[] { chkAsciiS, chkHexS, chkParse, chkAt, chkCheck });
+            lnkOrganizeRecv = new LinkLabel { Text = "整理接收", Location = new Point(188, 82), AutoSize = true };
+            lnkClearRecv = new LinkLabel { Text = "清除接收", Location = new Point(188, 106), AutoSize = true };
+            lnkClearRecv.LinkClicked += (s, e) => { rtxtLog.Clear(); ShowEmptyState(true); };
 
-            left.Controls.AddRange(new Control[] { grpSend, grpRecv, grpNetwork });
-            this.Controls.Add(left);
+            grpReceive.Controls.AddRange(new Control[] { chkAsciiRecv, chkHexRecv, chkShowAsLog, chkAutoNewline, chkAutoSaveRecv, lnkOrganizeRecv, lnkClearRecv });
+
+            grpSend = new GroupBox { Text = "发送设置", Height = 170, Dock = DockStyle.Top };
+            chkAsciiSend = new CheckBox { Text = "ASCII", Location = new Point(12, 26), Checked = true };
+            chkHexSend = new CheckBox { Text = "HEX", Location = new Point(92, 26) };
+            chkAutoParse = new CheckBox { Text = "自动解析转义符", Location = new Point(12, 54), Checked = true };
+            chkAtReturn = new CheckBox { Text = "AT指令自动回车", Location = new Point(12, 82) };
+            chkAutoChecksum = new CheckBox { Text = "自动发送校验位", Location = new Point(12, 110) };
+
+            grpSend.Controls.AddRange(new Control[] { chkAsciiSend, chkHexSend, chkAutoParse, chkAtReturn, chkAutoChecksum });
+
+            leftPanel.Controls.AddRange(new Control[] { grpSend, grpReceive, grpNetwork });
+            this.Controls.Add(leftPanel);
 
             // Center
-            var center = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12) };
-            var grpLog = new GroupBox { Text = "数据日志", Dock = DockStyle.Fill };
-            var rtxt = new RichTextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Consolas", 10F) };
-            var lblEmpty = new Label { Text = "暂无数据", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 18F), ForeColor = Color.FromArgb(130, 160, 185) };
-            grpLog.Controls.Add(rtxt);
-            grpLog.Controls.Add(lblEmpty);
-            center.Controls.Add(grpLog);
-            this.Controls.Add(center);
+            centerPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12) };
+            grpLog = new GroupBox { Text = "数据日志", Dock = DockStyle.Fill };
+            rtxtLog = new RichTextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Consolas", 10F) };
+            lblEmptyState = new Label { Text = "暂无数据", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 18F), ForeColor = Color.FromArgb(130, 160, 185) };
+
+            grpLog.Controls.Add(rtxtLog);
+            grpLog.Controls.Add(lblEmptyState);
+            centerPanel.Controls.Add(grpLog);
+            this.Controls.Add(centerPanel);
 
             // Bottom
-            var bottom = new Panel { Dock = DockStyle.Bottom, Height = 128, Padding = new Padding(12) };
-            var grpSendArea = new GroupBox { Text = "数据发送", Dock = DockStyle.Fill };
-            var txtSend = new TextBox { Multiline = true, Left = 12, Top = 24, Width = 720, Height = 64, Text = "http://www.cmsoft.cn" };
-            var btnSend = new RoundedButton { Text = "发送", Left = 760, Top = 24, Width = 128, Height = 64, Radius = 8 };
-            var btnClear = new RoundedButton { Text = "清除", Left = 760, Top = 92, Width = 64, Height = 28, Radius = 6 };
-            var btnClearLog = new RoundedButton { Text = "清除日志", Left = 12, Top = 92, Width = 100, Height = 28, Radius = 6 };
+            bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 128, Padding = new Padding(12) };
+            grpDataSend = new GroupBox { Text = "数据发送", Dock = DockStyle.Fill };
+            txtSend = new TextBox { Multiline = true, Left = 12, Top = 28, Width = 700, Height = 66, Text = "http://www.cmsoft.cn" };
 
-            btnSend.Click += (s, e) =>
-            {
-                // delegate to existing send logic
-                BtnSend_Click(s, e);
-            };
-            btnClear.Click += (s, e) => txtSend.Clear();
-            btnClearLog.Click += (s, e) => rtxt.Clear();
+            btnSend = new RoundedButton { Text = "发送", Left = 740, Top = 28, Width = 132, Height = 66, Radius = 10 };
+            btnClearSend = new RoundedButton { Text = "清除", Left = 740, Top = 96, Width = 64, Height = 26, Radius = 6 };
+            btnClearLog = new RoundedButton { Text = "清除日志", Left = 12, Top = 96, Width = 100, Height = 26, Radius = 6 };
+            btnUploadSample = new RoundedButton { Text = "上传", Left = 812, Top = 96, Width = 60, Height = 26, Radius = 6 };
 
-            grpSendArea.Controls.AddRange(new Control[] { txtSend, btnSend, btnClear, btnClearLog });
-            bottom.Controls.Add(grpSendArea);
-            this.Controls.Add(bottom);
+            btnSend.Click += BtnSend_Click;
+            btnClearSend.Click += (s, e) => txtSend.Clear();
+            btnClearLog.Click += (s, e) => { rtxtLog.Clear(); ShowEmptyState(true); };
+
+            grpDataSend.Controls.AddRange(new Control[] { txtSend, btnSend, btnClearSend, btnClearLog, btnUploadSample });
+            bottomPanel.Controls.Add(grpDataSend);
+            this.Controls.Add(bottomPanel);
 
             // StatusStrip
-            var status = new StatusStrip();
-            var lblState = new ToolStripStatusLabel { Text = "就绪！" };
-            var lblCtr = new ToolStripStatusLabel { Text = "RX:0  TX:0", Spring = false };
-            status.Items.Add(lblState);
-            status.Items.Add(new ToolStripStatusLabel { Spring = true });
-            status.Items.Add(lblCtr);
-            this.Controls.Add(status);
+            statusStrip = new StatusStrip { BackColor = Color.FromArgb(8, 18, 28), ForeColor = Color.LightGray };
+            lblStatus = new ToolStripStatusLabel("就绪！");
+            lblSpacer = new ToolStripStatusLabel { Spring = true };
+            lblCounts = new ToolStripStatusLabel("RX:0  TX:0");
+            lblCenterCounts = new ToolStripStatusLabel("0/0") { Margin = new Padding(8, 0, 8, 0) };
+            statusStrip.Items.Add(lblStatus);
+            statusStrip.Items.Add(lblSpacer);
+            statusStrip.Items.Add(lblCenterCounts);
+            statusStrip.Items.Add(lblCounts);
+            this.Controls.Add(statusStrip);
 
-            // Wire common controls to fields for use elsewhere
-            // Using naming similar to earlier files for compatibility
-            this.lblHeaderTitle = lblTitle;
-            this.lblVersion = lblVer;
-            this.btnMin = btnMin;
-            this.btnMax = btnMax;
-            this.btnClose = btnClose;
-
-            // left controls
-            this.leftPanel = left;
-            this.grpNetwork = grpNetwork;
-            this.cbProtocol = cbProt;
-            this.txtHost = txtHost;
-            this.txtPort = txtPort;
-            this.btnConnect = btnConnect;
-
-            this.grpReceive = grpRecv;
-            this.chkAsciiRecv = chkAsciiR;
-            this.chkHexRecv = chkHexR;
-            this.chkShowAsLog = chkLogMode;
-            this.chkAutoNewline = chkWrap;
-            this.chkAutoSaveRecv = chkAutoSave;
-
-            this.grpSend = grpSend;
-            this.chkAsciiSend = chkAsciiS;
-            this.chkHexSend = chkHexS;
-            this.chkAutoParse = chkParse;
-            this.chkAtReturn = chkAt;
-            this.chkAutoChecksum = chkCheck;
-
-            this.centerPanel = center;
-            this.grpLog = grpLog;
-            this.rtxtLog = rtxt;
-            this.lblEmptyState = lblEmpty;
-
-            this.bottomPanel = bottom;
-            this.grpDataSend = grpSendArea;
-            this.txtSend = txtSend;
-            this.btnSend = btnSend;
-            this.btnClearSend = btnClear;
-            this.btnClearLog = btnClearLog;
-
-            this.statusStrip = status;
-            this.lblStatus = lblState;
-            this.lblCounts = lblCtr;
+            // Wire fields to previously used names
+            this.lblHeaderTitle = lblHeaderTitle; // already assigned
+            this.lblVersion = lblVersion;
+            this.btnMin = btnMin; this.btnMax = btnMax; this.btnClose = btnClose; this.btnMenu = btnMenu;
+            this.leftPanel = leftPanel; this.grpNetwork = grpNetwork; this.cbProtocol = cbProtocol; this.txtHost = txtHost; this.txtPort = txtPort; this.btnConnect = btnConnect;
+            this.grpReceive = grpReceive; this.chkAsciiRecv = chkAsciiRecv; this.chkHexRecv = chkHexRecv; this.chkShowAsLog = chkShowAsLog; this.chkAutoNewline = chkAutoNewline; this.chkAutoSaveRecv = chkAutoSaveRecv; this.lnkOrganizeRecv = lnkOrganizeRecv; this.lnkClearRecv = lnkClearRecv;
+            this.grpSend = grpSend; this.chkAsciiSend = chkAsciiSend; this.chkHexSend = chkHexSend; this.chkAutoParse = chkAutoParse; this.chkAtReturn = chkAtReturn; this.chkAutoChecksum = chkAutoChecksum;
+            this.centerPanel = centerPanel; this.grpLog = grpLog; this.rtxtLog = rtxtLog; this.lblEmptyState = lblEmptyState;
+            this.bottomPanel = bottomPanel; this.grpDataSend = grpDataSend; this.txtSend = txtSend; this.btnSend = btnSend; this.btnClearSend = btnClearSend; this.btnClearLog = btnClearLog; this.btnUploadSample = btnUploadSample;
+            this.statusStrip = statusStrip; this.lblStatus = lblStatus; this.lblCounts = lblCounts; this.lblCenterCounts = lblCenterCounts; this.lblSpacer = lblSpacer;
 
             // header drag
-            header.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) NativeMethods.ReleaseCaptureAndDrag(this.Handle); };
+            headerPanel.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) NativeMethods.ReleaseCaptureAndDrag(this.Handle); };
             this.Resize += (s, e) => UpdateHeaderPositions();
         }
 
@@ -192,7 +238,7 @@ namespace WinFramework
             lblHeaderTitle.ForeColor = Color.FromArgb(208, 235, 255);
             lblVersion.ForeColor = Color.FromArgb(120, 205, 255);
 
-            leftPanel.BackColor = Color.FromArgb(9, 24, 36);
+            leftPanel.BackColor = Color.FromArgb(9, 24, 38);
             centerPanel.BackColor = Color.FromArgb(8, 18, 28);
             bottomPanel.BackColor = Color.FromArgb(6, 16, 26);
 
@@ -214,11 +260,15 @@ namespace WinFramework
             btnClose.BackColor = Color.FromArgb(12, 28, 40);
             btnMin.ForeColor = Color.LightGray; btnMax.ForeColor = Color.LightGray; btnClose.ForeColor = Color.LightGray;
 
+            btnMenu.BackColor = Color.FromArgb(12, 28, 40);
+            btnMenu.ForeColor = Color.LightGray;
+
             // Rounded button default colors handled in control; tweak specific ones
             btnConnect.BackColor = Color.FromArgb(34, 123, 233);
             btnSend.BackColor = Color.FromArgb(38, 184, 104);
             btnClearSend.BackColor = Color.FromArgb(22, 36, 48);
             btnClearLog.BackColor = Color.FromArgb(22, 36, 48);
+            btnUploadSample.BackColor = Color.FromArgb(60, 100, 180);
 
             UpdateHeaderPositions();
             ShowEmptyState(true);
@@ -237,16 +287,7 @@ namespace WinFramework
                 btnMin.Location = new Point(this.ClientSize.Width - 120, 18);
         }
 
-        // Existing network and send/receive code expects fields with same names
-        // We'll reuse the earlier implementations for Connect, Send, ReadLoop, etc.
-
-        private TcpClient? _tcpClient;
-        private NetworkStream? _networkStream;
-        private CancellationTokenSource? _readCts;
-        private readonly object _syncRoot = new object();
-        private int _rxCount = 0;
-        private int _txCount = 0;
-
+        // Network logic reused from previous implementation
         private async void BtnConnect_Click(object? sender, EventArgs e)
         {
             if (_tcpClient != null && _tcpClient.Connected)
@@ -329,6 +370,7 @@ namespace WinFramework
             if (chkAutoSaveRecv.Checked) { try { File.AppendAllText(_savePath, text + Environment.NewLine); } catch { } }
             _rxCount += data.Length; _rxCount = Math.Max(0, _rxCount);
             lblCounts.Text = $"RX:{_rxCount}  TX:{_txCount}";
+            lblCenterCounts.Text = $"{_rxCount}/{_txCount}";
             ShowEmptyState(false);
         }
 
@@ -351,7 +393,7 @@ namespace WinFramework
                 _networkStream.Flush();
                 var display = chkAsciiSend.Checked ? Encoding.ASCII.GetString(data) : ByteArrayToHex(data);
                 AppendLogLine($"[TX] {DateTime.Now:HH:mm:ss} {display}");
-                _txCount += data.Length; lblCounts.Text = $"RX:{_rxCount}  TX:{_txCount}"; ShowEmptyState(false);
+                _txCount += data.Length; lblCounts.Text = $"RX:{_rxCount}  TX:{_txCount}"; lblCenterCounts.Text = $"{_rxCount}/{_txCount}"; ShowEmptyState(false);
             }
             catch (Exception ex) { AppendLogLine($"[ERR] {DateTime.Now:HH:mm:ss} 发送失败: {ex.Message}"); }
         }
